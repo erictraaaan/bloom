@@ -1,3 +1,7 @@
+#include <SimpleTimer.h>
+
+//#include <Event.h>
+//#include <Timer.h>
 #include <Servo.h>
 
 //encoder help from
@@ -22,11 +26,19 @@ int lastButtonState = LOW;   // the previous reading from the input pin
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
 unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
+bool startUpDelay = true;
 
 // TIMER VALUES
 int workTimeMinutes = 0;
 int breakTimeMinutes = 0;
 bool workOrBreakSetup = false;
+bool setupMode = true;
+
+//Timer t;
+SimpleTimer timer;
+int timerID;
+int countdown = 0;
+bool workTime = true;
 
 void setup() {
   Serial.begin (9600);
@@ -42,16 +54,19 @@ void setup() {
   //on interrupt 0 (pin 2), or interrupt 1 (pin 3)
   attachInterrupt(0, updateEncoder, CHANGE);
   attachInterrupt(1, updateEncoder, CHANGE);
+  Serial.println("Welcome to Bloom.");
+  Serial.println("Tell us how long you want to work: ");
 }
 
 void loop() {
-  Serial.print("Work Time: ");
-  Serial.print(workTimeMinutes);
-  Serial.println(" minutes");
-  if(ButtonPressed()){
-    SetBreakTime();
+  if (CheckButtonPress()){
+    if (startUpDelay){
+      startUpDelay = false;
+    }
+    else{
+      SetBreakTime();
+    }
   }
-    
 }
 
 void updateEncoder(){
@@ -62,51 +77,84 @@ void updateEncoder(){
   if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encoderValue ++; 
   if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encoderValue --; 
   lastEncoded = encoded; //store this value for next time 
-  changeTime(workOrBreakSetup);
+  if(setupMode) changeTime(workOrBreakSetup);
 }
 
 void SetBreakTime(){
+  Serial.println("Tell us how long you want to break: ");
   workOrBreakSetup = true;
   ResetEncoderValues();
   while(true){
-      Serial.print("Break Time: ");
-      Serial.print(breakTimeMinutes);
-      Serial.println(" minutes");
-      if(ButtonPressed()){
-        StartWorking();
-      }
+    if(CheckButtonPress()){
+      setupMode = false;
+      WorkSetup();
+    }
   }
-
-
 }
 
 void changeTime(bool workOrBreak){
   if (!workOrBreak){
     //change the work time
-    if (encoderValue > lastEncoded){
+    if (encoderValue > lastEncoded && ( (encoderValue - lastEncoded) > 5 )){
       workTimeMinutes += 5;
+      if (workTimeMinutes > 180) workTimeMinutes = 180;
     }
     else {
-      workTimeMinutes -= 5;
+      if ( (lastEncoded - encoderValue) > 5){
+              workTimeMinutes -= 5;
       if (workTimeMinutes < 0) workTimeMinutes = 0;
+      }
     }
+    Serial.print("Work Time: ");
+    Serial.print(workTimeMinutes);
+    Serial.println(" minutes");
   }
   else {
     //change the break time
         if (encoderValue > lastEncoded){
       breakTimeMinutes += 5;
+      if (breakTimeMinutes > 180) breakTimeMinutes = 180;
     }
     else {
       breakTimeMinutes -= 5;
-      if (breakTimeMinutes < 0) workTimeMinutes = 0;
+      if (breakTimeMinutes < 0) breakTimeMinutes = 0;
     }
+    Serial.print("Break Time: ");
+    Serial.print(breakTimeMinutes);
+    Serial.println(" minutes");
   }
 }
 
-void StartWorking(){
+void WorkSetup(){
+  timerID = timer.setInterval(1000, UpdateLCD);
+  StartWorking();
+}
+
+void StartWorking(){  
+  Serial.println("Lets get to work!");
+  countdown = workTimeMinutes*60;
+  ShowCountdown();
   while(true){
-    Serial.println("Go To Work!");
-    delay(1000);
+    timer.run();
+  }
+}
+
+void ShowCountdown(){
+  Serial.print(countdown/60);
+  Serial.println(" minutes remaining.");
+}
+
+void ShowSeconds(){
+  Serial.print(countdown);
+  Serial.println(" seconds left.");
+}
+
+void StartBreak(){
+  Serial.println("Time for a break!");
+  countdown = breakTimeMinutes*60;
+  ShowCountdown();
+  while(true){
+    timer.run();
   }
 }
 
@@ -118,36 +166,42 @@ void ResetEncoderValues(){
   lastLSB = 0;
 }
 
-bool ButtonPressed(){
-    // read the state of the switch into a local variable:
-  int reading = digitalRead(encoderSwitchPin);
-
-  // check to see if you just pressed the button
-  // (i.e. the input went from LOW to HIGH), and you've waited long enough
-  // since the last press to ignore any noise:
-
-  // If the switch changed, due to noise or pressing:
-  if (reading != lastButtonState) {
-    // reset the debouncing timer
-    lastDebounceTime = millis();
+void UpdateLCD(){
+  countdown--;
+  ShowSeconds();
+  if (countdown % 60 == 0){
+      ShowCountdown();
   }
-
-  if ((millis() - lastDebounceTime) > debounceDelay) {
-    // whatever the reading is at, it's been there for longer than the debounce
-    // delay, so take it as the actual current state:
-
-    // if the button state has changed:
-    if (reading != buttonState) {
-      buttonState = reading;
-
-      // only toggle the LED if the new button state is HIGH
-      if (buttonState == HIGH) {
-        return true;
-      }
-      else {
-        return false;
-      }
+  if (countdown <= 0){
+    if(workTime){
+      workTime = !workTime;
+      StartBreak();
     }
+    else {
+      workTime = !workTime;
+      StartWorking();
+    }
+
+  }
+}
+
+bool CheckButtonPress(){
+  if(debounceButton(buttonState) == HIGH && buttonState == LOW){
+    buttonState = HIGH;
+    return true;
+  }
+  else if (debounceButton(buttonState) == LOW && buttonState == HIGH){
+    buttonState = LOW;
+    return false;
   }
   return false;
+}
+
+boolean debounceButton(boolean state){
+  boolean stateNow = digitalRead(encoderSwitchPin);
+  if (state != stateNow){
+    delay(10);
+    stateNow = digitalRead(encoderSwitchPin);
+  }
+  return stateNow;
 }
