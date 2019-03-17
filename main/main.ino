@@ -1,16 +1,23 @@
 #include <SimpleTimer.h>
-
-//#include <Event.h>
-//#include <Timer.h>
 #include <Servo.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include "Adafruit_LEDBackpack.h"
 
-//encoder help from
-//bildr article: http://bildr.org/2012/08/rotary-encoder-arduino/
+//LED DISPLAY
+Adafruit_7segment matrix = Adafruit_7segment();
 
 // I-O PINS
 int encoderPin1 = 2;
 int encoderPin2 = 3;
 int encoderSwitchPin = 4; //push button switch
+
+//RGD LED PINS
+int redPin = 9;
+int greenPin = 10;
+int bluePin = 11;
+bool blinkOn = true;
+int blinkTimerID;
 
 // ENCODER VALUES
 volatile int lastEncoded = 0;
@@ -33,16 +40,20 @@ int workTimeMinutes = 0;
 int breakTimeMinutes = 0;
 bool workOrBreakSetup = false;
 bool setupMode = true;
-
-//Timer t;
 SimpleTimer timer;
 int timerID;
 int countdown = 0;
 bool workTime = true;
 
 void setup() {
-  Serial.begin (9600);
-
+  //DISPLAY SETUP
+  #ifndef __AVR_ATtiny85__
+  Serial.begin(9600);
+  #endif
+  matrix.begin(0x70);
+  matrix.setBrightness(1);
+  matrix.blinkRate(1);
+  
   //ENCODER SETUP
   pinMode(encoderPin1, INPUT);
   pinMode(encoderPin2, INPUT);
@@ -56,9 +67,19 @@ void setup() {
   attachInterrupt(1, updateEncoder, CHANGE);
   Serial.println("Welcome to Bloom.");
   Serial.println("Tell us how long you want to work: ");
+
+  //RGB LED SETUP
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+  setColor(255,0,0);
+  
 }
 
 void loop() {
+  
+  matrix.print(workTimeMinutes,DEC);
+  matrix.writeDisplay();
   if (CheckButtonPress()){
     if (startUpDelay){
       startUpDelay = false;
@@ -84,7 +105,10 @@ void SetBreakTime(){
   Serial.println("Tell us how long you want to break: ");
   workOrBreakSetup = true;
   ResetEncoderValues();
+  
   while(true){
+    matrix.print(breakTimeMinutes,DEC);
+    matrix.writeDisplay();
     if(CheckButtonPress()){
       setupMode = false;
       WorkSetup();
@@ -126,6 +150,7 @@ void changeTime(bool workOrBreak){
 }
 
 void WorkSetup(){
+  matrix.blinkRate(0);
   timerID = timer.setInterval(1000, UpdateLCD);
   StartWorking();
 }
@@ -135,6 +160,8 @@ void StartWorking(){
   countdown = workTimeMinutes*60;
   ShowCountdown();
   while(true){
+    matrix.print(countdown/60 + 1,DEC);
+    matrix.writeDisplay();
     timer.run();
   }
 }
@@ -154,6 +181,8 @@ void StartBreak(){
   countdown = breakTimeMinutes*60;
   ShowCountdown();
   while(true){
+    matrix.print(countdown/60 + 1,DEC);
+    matrix.writeDisplay();    
     timer.run();
   }
 }
@@ -204,4 +233,32 @@ boolean debounceButton(boolean state){
     stateNow = digitalRead(encoderSwitchPin);
   }
   return stateNow;
+}
+
+void setLedRed(){
+  setColor(255,0,0); 
+}
+
+void setLedBlue(){
+  setColor(0,0,255);
+}
+
+void setLedGreen(){
+  setColor(0,255,0);
+}
+
+void setColor(int redValue, int greenValue, int blueValue) {
+  analogWrite(redPin, redValue);
+  analogWrite(greenPin, greenValue);
+  analogWrite(bluePin, blueValue);
+}
+
+void blinkLED(){
+  if (blinkOn){
+    setColor(0,0,0);
+  }
+  else {
+    setColor(113,238,184);
+  }
+  blinkOn = !blinkOn;
 }
