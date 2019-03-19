@@ -72,7 +72,7 @@ void setup() {
   pinMode(redPin, OUTPUT);
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT);
-  setColor(255,0,0);
+  setLedRed();
   
 }
 
@@ -105,6 +105,7 @@ void SetBreakTime(){
   Serial.println("Tell us how long you want to break: ");
   workOrBreakSetup = true;
   ResetEncoderValues();
+  setLedBlue();
   
   while(true){
     matrix.print(breakTimeMinutes,DEC);
@@ -152,6 +153,7 @@ void changeTime(bool workOrBreak){
 void WorkSetup(){
   matrix.blinkRate(0);
   timerID = timer.setInterval(1000, UpdateLCD);
+  setLedGreen();
   StartWorking();
 }
 
@@ -178,6 +180,7 @@ void ShowSeconds(){
 
 void StartBreak(){
   Serial.println("Time for a break!");
+  setLedBlue();
   countdown = breakTimeMinutes*60;
   ShowCountdown();
   while(true){
@@ -208,7 +211,7 @@ void UpdateLCD(){
     }
     else {
       workTime = !workTime;
-      StartWorking();
+      WorkSetup();
     }
 
   }
