@@ -4,6 +4,12 @@
 #include <Adafruit_GFX.h>
 #include "Adafruit_LEDBackpack.h"
 
+/*
+	BLOOM - WORK AND BREAK PERIOD MANAGER
+	GROUP 8 - MECHENG 4B03
+	SOURCE CODE DEVELOPED BY ERIC TRAN
+*/
+
 //LED DISPLAY
 Adafruit_7segment matrix = Adafruit_7segment();
 
@@ -44,6 +50,15 @@ SimpleTimer timer;
 int timerID;
 int countdown = 0;
 bool workTime = true;
+int motorTimerID;
+
+//SERVO MOTOR
+Servo myServo;
+int servoPin = 6;
+const float totalRotationSeconds = 10;
+const float rotationDivider = 20;
+float rotationAmountPer = totalRotationSeconds/rotationDivider;
+float rotationWaitPeriod;
 
 void setup() {
   //DISPLAY SETUP
@@ -51,7 +66,7 @@ void setup() {
   Serial.begin(9600);
   #endif
   matrix.begin(0x70);
-  matrix.setBrightness(1);
+  matrix.setBrightness(15);
   matrix.blinkRate(1);
   
   //ENCODER SETUP
@@ -73,11 +88,18 @@ void setup() {
   pinMode(greenPin, OUTPUT);
   pinMode(bluePin, OUTPUT);
   setLedRed();
+
+  //SERVO SETUP
+  myServo.attach(servoPin);
+  myServo.write(90);
+
+  blinkTimerID = timer.setInterval(1000, blinkLED);
   
 }
 
 void loop() {
-  
+
+  timer.run();
   matrix.print(workTimeMinutes,DEC);
   matrix.writeDisplay();
   if (CheckButtonPress()){
@@ -108,6 +130,7 @@ void SetBreakTime(){
   setLedBlue();
   
   while(true){
+    timer.run();
     matrix.print(breakTimeMinutes,DEC);
     matrix.writeDisplay();
     if(CheckButtonPress()){
@@ -154,7 +177,12 @@ void WorkSetup(){
   matrix.blinkRate(0);
   timerID = timer.setInterval(1000, UpdateLCD);
   setLedGreen();
+  SetMotorParameters();
   StartWorking();
+}
+
+void SetMotorParameters(){
+  rotationWaitPeriod = workTimeMinutes*60/rotationDivider;
 }
 
 void StartWorking(){  
@@ -204,6 +232,7 @@ void UpdateLCD(){
   if (countdown % 60 == 0){
       ShowCountdown();
   }
+  
   if (countdown <= 0){
     if(workTime){
       workTime = !workTime;
@@ -257,6 +286,7 @@ void setColor(int redValue, int greenValue, int blueValue) {
 }
 
 void blinkLED(){
+    Serial.println(" blink LED ");
   if (blinkOn){
     setColor(0,0,0);
   }
