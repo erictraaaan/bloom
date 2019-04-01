@@ -37,8 +37,7 @@ int buttonState;             // the current reading from the input pin
 int lastButtonState = LOW;   // the previous reading from the input pin
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
-unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
-unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
+
 bool startUpDelay = true;
 
 // TIMER VALUES
@@ -51,14 +50,23 @@ int timerID;
 int countdown = 0;
 bool workTime = true;
 int motorTimerID;
+bool workOrBreak = true;
 
 //SERVO MOTOR
 Servo myServo;
 int servoPin = 6;
-const float totalRotationSeconds = 10;
+const float totalRotationSeconds = 15;
 const float rotationDivider = 20;
 float rotationAmountPer = totalRotationSeconds/rotationDivider;
 float rotationWaitPeriod;
+int motorCounter;
+bool driveMotor = false;
+
+//PHONE SWITCH
+int phoneSwitchPin = 7;
+int phoneButtonState;
+int phoneLastButtonState = LOW;
+
 
 void setup() {
   //DISPLAY SETUP
@@ -93,23 +101,23 @@ void setup() {
   myServo.attach(servoPin);
   myServo.write(90);
 
-  blinkTimerID = timer.setInterval(1000, blinkLED);
+  //PHONE SENSOR SETUP
+  pinMode(phoneSwitchPin, INPUT);
   
 }
 
 void loop() {
-
-  timer.run();
-  matrix.print(workTimeMinutes,DEC);
-  matrix.writeDisplay();
-  if (CheckButtonPress()){
-    if (startUpDelay){
-      startUpDelay = false;
-    }
-    else{
-      SetBreakTime();
-    }
-  }
+    timer.run();
+    matrix.print(workTimeMinutes,DEC);
+    matrix.writeDisplay();
+    if (CheckButtonPress()){
+      if (startUpDelay){
+        startUpDelay = false;
+      }
+      else{
+        SetBreakTime();
+      }
+    }    
 }
 
 void updateEncoder(){
@@ -177,18 +185,51 @@ void WorkSetup(){
   matrix.blinkRate(0);
   timerID = timer.setInterval(1000, UpdateLCD);
   setLedGreen();
-  SetMotorParameters();
   StartWorking();
 }
 
 void SetMotorParameters(){
   rotationWaitPeriod = workTimeMinutes*60/rotationDivider;
+  motorTimerID = timer.setInterval(1000, updateMotorPosition);
+
+  Serial.print("rotation wait period: ");
+  Serial.println(rotationWaitPeriod);
+
+  Serial.print("rotation amount per: ");
+  Serial.println(rotationAmountPer);
+}
+
+void updateMotorPosition(){
+  Serial.print("motorcounter: ");
+  Serial.println(motorCounter);
+  motorCounter++;
+  if (!driveMotor && motorCounter>=rotationWaitPeriod){
+    motorCounter=0;
+    driveMotor = true;
+  }
+  if (driveMotor && motorCounter>=rotationAmountPer){
+    motorCounter=0;
+    driveMotor = false;
+  }
+  if (driveMotor){
+    if (workOrBreak){
+      myServo.write(135);
+    }
+    else {
+      myServo.write(45);
+    }
+  }
+  else {
+    myServo.write(90);
+  }
 }
 
 void StartWorking(){  
   Serial.println("Lets get to work!");
   countdown = workTimeMinutes*60;
   ShowCountdown();
+  SetMotorParameters();
+  workOrBreak = true;
   while(true){
     matrix.print(countdown/60 + 1,DEC);
     matrix.writeDisplay();
@@ -207,6 +248,7 @@ void ShowSeconds(){
 }
 
 void StartBreak(){
+  workOrBreak = false;
   Serial.println("Time for a break!");
   setLedBlue();
   countdown = breakTimeMinutes*60;
@@ -258,7 +300,28 @@ bool CheckButtonPress(){
   return false;
 }
 
-boolean debounceButton(boolean state){
+bool CheckPhoneState(){
+  if(debounceButton(phoneButtonState) == HIGH && phoneButtonState == LOW){
+    phoneButtonState = HIGH;
+    return true;
+  }
+  else if (debounceButton(phoneButtonState) == LOW && phoneButtonState == HIGH){
+    phoneButtonState = LOW;
+    return false;
+  }
+  return false;
+}
+
+bool debouncePhoneButton(bool state){
+  bool stateNow = digitalRead(phoneSwitchPin);
+    if (state != stateNow){
+    delay(10);
+    stateNow = digitalRead(phoneSwitchPin);
+  }
+  return stateNow;
+}
+
+bool debounceButton(boolean state){
   boolean stateNow = digitalRead(encoderSwitchPin);
   if (state != stateNow){
     delay(10);
