@@ -56,10 +56,11 @@ bool workOrBreak = true;
 Servo myServo;
 int servoPin = 6;
 const float totalRotationSeconds = 15;
-const float rotationDivider = 20;
+const float rotationDivider = 180;
 float rotationAmountPer = totalRotationSeconds/rotationDivider;
 float rotationWaitPeriod;
 int motorCounter;
+int angleToDrive;
 bool driveMotor = false;
 
 //PHONE SWITCH
@@ -119,7 +120,7 @@ void loop() {
       }
     }    
 }
-
+ 
 void updateEncoder(){
   int MSB = digitalRead(encoderPin1); //MSB = most significant bit
   int LSB = digitalRead(encoderPin2); //LSB = least significant bit
@@ -128,6 +129,7 @@ void updateEncoder(){
   if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encoderValue ++; 
   if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encoderValue --; 
   lastEncoded = encoded; //store this value for next time 
+  Serial.println(encoded);
   if(setupMode) changeTime(workOrBreakSetup);
 }
 
@@ -189,39 +191,55 @@ void WorkSetup(){
 }
 
 void SetMotorParameters(){
-  rotationWaitPeriod = workTimeMinutes*60/rotationDivider;
-  motorTimerID = timer.setInterval(1000, updateMotorPosition);
+  rotationWaitPeriod = (workTimeMinutes*60/rotationDivider)*2;
+  motorTimerID = timer.setInterval(500, updateMotorPosition);
 
   Serial.print("rotation wait period: ");
   Serial.println(rotationWaitPeriod);
 
   Serial.print("rotation amount per: ");
   Serial.println(rotationAmountPer);
+
+  motorCounter = 0;
+  angleToDrive = 0;
+
 }
 
 void updateMotorPosition(){
   Serial.print("motorcounter: ");
   Serial.println(motorCounter);
   motorCounter++;
-  if (!driveMotor && motorCounter>=rotationWaitPeriod){
+  if (motorCounter >= rotationWaitPeriod){
     motorCounter=0;
-    driveMotor = true;
-  }
-  if (driveMotor && motorCounter>=rotationAmountPer){
-    motorCounter=0;
-    driveMotor = false;
-  }
-  if (driveMotor){
     if (workOrBreak){
-      myServo.write(135);
+      angleToDrive++;
     }
-    else {
-      myServo.write(45);
+    else{
+      angleToDrive--;
     }
+    myServo.write(angleToDrive);
   }
-  else {
-    myServo.write(90);
-  }
+
+  // if (!driveMotor && motorCounter>=rotationWaitPeriod){
+  //   motorCounter=0;
+  //   driveMotor = true;
+  // }
+  // if (driveMotor && motorCounter>=rotationAmountPer){
+  //   motorCounter=0;
+  //   driveMotor = false;
+  // }
+  // if (driveMotor){
+  //   if (workOrBreak){
+  //     myServo.write(135);
+  //   }
+  //   else {
+  //     myServo.write(45);
+  //   }
+  // }
+  // else {
+  //   myServo.write(90);
+  // }
+
 }
 
 void StartWorking(){  
@@ -268,7 +286,7 @@ void ResetEncoderValues(){
   lastLSB = 0;
 }
 
-void UpdateLCD(){
+void UpdateLCD(){ //called by main timer
   countdown--;
   ShowSeconds();
   if (countdown % 60 == 0){
@@ -348,7 +366,7 @@ void setColor(int redValue, int greenValue, int blueValue) {
   analogWrite(bluePin, blueValue);
 }
 
-void blinkLED(){
+void blinkLED(){ //called by LED timer
     Serial.println(" blink LED ");
   if (blinkOn){
     setColor(0,0,0);
