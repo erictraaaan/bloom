@@ -100,7 +100,7 @@ void setup() {
 
   //SERVO SETUP
   myServo.attach(servoPin);
-  myServo.write(90);
+  myServo.write(0);
 
   //PHONE SENSOR SETUP
   pinMode(phoneSwitchPin, INPUT);
@@ -109,6 +109,7 @@ void setup() {
 
 void loop() {
     timer.run();
+    myServo.write(0);
     matrix.print(workTimeMinutes,DEC);
     matrix.writeDisplay();
     if (CheckButtonPress()){
@@ -129,7 +130,6 @@ void updateEncoder(){
   if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encoderValue ++; 
   if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encoderValue --; 
   lastEncoded = encoded; //store this value for next time 
-  Serial.println(encoded);
   if(setupMode) changeTime(workOrBreakSetup);
 }
 
@@ -138,8 +138,8 @@ void SetBreakTime(){
   workOrBreakSetup = true;
   ResetEncoderValues();
   setLedBlue();
-  
   while(true){
+    myServo.write(0);
     timer.run();
     matrix.print(breakTimeMinutes,DEC);
     matrix.writeDisplay();
@@ -153,15 +153,15 @@ void SetBreakTime(){
 void changeTime(bool workOrBreak){
   if (!workOrBreak){
     //change the work time
-    if (encoderValue > lastEncoded && ( (encoderValue - lastEncoded) > 5 )){
+    if (encoderValue > lastEncoded){
       workTimeMinutes += 5;
       if (workTimeMinutes > 180) workTimeMinutes = 180;
     }
     else {
-      if ( (lastEncoded - encoderValue) > 5){
+      // if ( (lastEncoded - encoderValue) > 5){
               workTimeMinutes -= 5;
       if (workTimeMinutes < 0) workTimeMinutes = 0;
-      }
+      // }
     }
     Serial.print("Work Time: ");
     Serial.print(workTimeMinutes);
