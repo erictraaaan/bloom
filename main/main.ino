@@ -65,8 +65,6 @@ bool driveMotor = false;
 
 //PHONE SWITCH
 int phoneSwitchPin = 7;
-int phoneButtonState;
-int phoneLastButtonState = LOW;
 
 
 void setup() {
@@ -104,6 +102,7 @@ void setup() {
 
   //PHONE SENSOR SETUP
   pinMode(phoneSwitchPin, INPUT);
+  digitalWrite(phoneSwitchPin, HIGH);
   
 }
 
@@ -249,10 +248,27 @@ void StartWorking(){
   SetMotorParameters();
   workOrBreak = true;
   while(true){
-    matrix.print(countdown/60 + 1,DEC);
-    matrix.writeDisplay();
-    timer.run();
+    if (digitalRead(phoneSwitchPin)){
+      matrix.blinkRate(0);
+      matrix.print(countdown/60 + 1,DEC);
+      matrix.writeDisplay();
+      timer.run();
+    }
+    else {
+      ShowPausedLCD();
+    }
+    myServo.write(angleToDrive);
+
   }
+}
+
+void ShowPausedLCD(){
+  matrix.blinkRate(2);
+  matrix.writeDigitRaw(0,0x6D);
+  matrix.writeDigitRaw(1,0x78);
+  matrix.writeDigitRaw(3,0x3F);
+  matrix.writeDigitRaw(4,0x73);
+  matrix.writeDisplay();
 }
 
 void ShowCountdown(){
@@ -318,27 +334,6 @@ bool CheckButtonPress(){
   return false;
 }
 
-bool CheckPhoneState(){
-  if(debounceButton(phoneButtonState) == HIGH && phoneButtonState == LOW){
-    phoneButtonState = HIGH;
-    return true;
-  }
-  else if (debounceButton(phoneButtonState) == LOW && phoneButtonState == HIGH){
-    phoneButtonState = LOW;
-    return false;
-  }
-  return false;
-}
-
-bool debouncePhoneButton(bool state){
-  bool stateNow = digitalRead(phoneSwitchPin);
-    if (state != stateNow){
-    delay(10);
-    stateNow = digitalRead(phoneSwitchPin);
-  }
-  return stateNow;
-}
-
 bool debounceButton(boolean state){
   boolean stateNow = digitalRead(encoderSwitchPin);
   if (state != stateNow){
@@ -349,15 +344,15 @@ bool debounceButton(boolean state){
 }
 
 void setLedRed(){
-  setColor(255,0,0); 
+  setColor(50,0,0); 
 }
 
 void setLedBlue(){
-  setColor(0,0,255);
+  setColor(0,0,50);
 }
 
 void setLedGreen(){
-  setColor(0,255,0);
+  setColor(0,50,0);
 }
 
 void setColor(int redValue, int greenValue, int blueValue) {
