@@ -31,6 +31,7 @@ volatile long encoderValue = 0;
 long lastencoderValue = 0;
 int lastMSB = 0;
 int lastLSB = 0;
+int encoderStepCounter = 0;
 
 // DEBOUNCING
 int buttonState;             // the current reading from the input pin
@@ -41,8 +42,8 @@ int lastButtonState = LOW;   // the previous reading from the input pin
 bool startUpDelay = true;
 
 // TIMER VALUES
-int workTimeMinutes = 0;
-int breakTimeMinutes = 0;
+int workTimeMinutes = 5;
+int breakTimeMinutes = 5;
 bool workOrBreakSetup = false;
 bool setupMode = true;
 SimpleTimer timer;
@@ -129,7 +130,53 @@ void updateEncoder(){
   if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) encoderValue ++; 
   if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) encoderValue --; 
   lastEncoded = encoded; //store this value for next time 
-  if(setupMode) changeTime(workOrBreakSetup);
+      Serial.print("encoderValue: ");
+    Serial.println(encoderValue);
+  if (encoderValue > lastEncoded){
+    encoderStepCounter++;
+  }
+  else {
+    encoderStepCounter--;
+  }
+  if (setupMode){
+    Serial.print("encoderStepCounter: ");
+    Serial.println(encoderStepCounter);
+    if (encoderStepCounter >= 5){
+      encoderStepCounter = 0;
+      changeSetupTimes(workOrBreakSetup, true);
+    }
+    else if (encoderStepCounter <= -5){
+      encoderStepCounter = 0;
+      changeSetupTimes(workOrBreakSetup, false);
+    }
+  }
+
+  // if(setupMode) changeTime(workOrBreakSetup);
+}
+
+void changeSetupTimes(bool workOrBreak, bool upOrDown){
+  if (!workOrBreak){
+    //change work time
+    if (upOrDown) {
+      workTimeMinutes += 5;
+      if (workTimeMinutes > 180) workTimeMinutes = 180;
+    }
+    else {
+      workTimeMinutes -= 5;
+      if (workTimeMinutes < 5) workTimeMinutes = 5;
+    }
+  }
+  else {
+    if (upOrDown){
+      breakTimeMinutes += 5;
+      if (breakTimeMinutes > 180) breakTimeMinutes = 180;
+    }
+    else {
+      breakTimeMinutes -= 5;
+      if (breakTimeMinutes < 5) breakTimeMinutes = 5;      
+    }
+
+  }
 }
 
 void SetBreakTime(){
@@ -159,7 +206,7 @@ void changeTime(bool workOrBreak){
     else {
       // if ( (lastEncoded - encoderValue) > 5){
               workTimeMinutes -= 5;
-      if (workTimeMinutes < 0) workTimeMinutes = 0;
+      if (workTimeMinutes < 5) workTimeMinutes = 5;
       // }
     }
     Serial.print("Work Time: ");
@@ -174,7 +221,7 @@ void changeTime(bool workOrBreak){
     }
     else {
       breakTimeMinutes -= 5;
-      if (breakTimeMinutes < 0) breakTimeMinutes = 0;
+      if (breakTimeMinutes < 5) breakTimeMinutes = 5;
     }
     Serial.print("Break Time: ");
     Serial.print(breakTimeMinutes);
@@ -344,15 +391,15 @@ bool debounceButton(boolean state){
 }
 
 void setLedRed(){
-  setColor(50,0,0); 
+  setColor(255,0,0); 
 }
 
 void setLedBlue(){
-  setColor(0,0,50);
+  setColor(0,0,255);
 }
 
 void setLedGreen(){
-  setColor(0,50,0);
+  setColor(0,255,0);
 }
 
 void setColor(int redValue, int greenValue, int blueValue) {
